@@ -1,0 +1,26 @@
+---
+- name: Crear usuarios en servidores
+  hosts: servidores
+  become: yes
+  vars:
+    packages:
+      - memcached
+      - mariadb-server
+  tasks:
+    - name: Crear usuario carlos	
+      ansible.builtin.user:
+        name: carlos
+        state: present 
+    - name: Crear usuario marta
+      ansible.builtin.user:
+        name: marta
+        state: present
+    - name: Instalar parquetes de la variable
+      ansible.builtin.package:
+          name: "{{ packages }}"
+          state: present
+    - name: Instalar redi si swap > 20mb
+      ansible.builtin.package:
+          name: redis
+          state: present
+      when: ansible_swaptotal_mb > 20

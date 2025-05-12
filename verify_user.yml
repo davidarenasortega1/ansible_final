@@ -1,0 +1,21 @@
+---
+- name: verify the carlos user was created
+  hosts: servidores
+  become: yes
+
+  tasks:
+    - name: verify the carlos user exists
+      ansible.builtin.command: getent passwd carlos
+      register: carlos_check
+      ignore_errors: yes
+
+    - name: estado users
+      ansible.builtin.debug:
+        msg: "el usuario carlos {{ ' existe' if carlos_check.rc == 0 else 'no existe' }} "
+      
+    - name: escribir estado en archivo
+      ansible.builtin.lineinfile:
+        path: /home/vagrant/verify.txt
+        line: "Carlos was created"
+        create: yes
+      when: carlos_check.rc == 0

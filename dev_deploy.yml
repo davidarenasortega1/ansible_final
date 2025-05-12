@@ -1,0 +1,55 @@
+---
+- name: Despliegue de app en servidores
+  hosts: servidores
+  become: true
+  vars: 
+    vhost_dest: "/etc/httpd/conf.d/vhost.conf"
+  tasks:
+    vhost_dest: "/etc/httpd/conf.d/vhost.conf"
+  tasks:
+    - name: Instalar paquete http
+      ansible.builtin.yum:
+        name: httpd
+        state: present
+    - name: Iniciar y habilitar httpd
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+    - name: Desplegar el template vhost.conf
+      ansible.builtin.template: 
+        src: templates/vhost.conf.j2
+        dest: "{{ vhost_dest }}"
+      notify: Restart httpd
+    - name: crear directorio basado en el host
+      ansible.builtin.file:
+        path: "/var/www/vhosts/{{ ansible_hostname }}"
+        state: directory
+        owner: apache
+        group: apache
+        mode: '0755'
+    - name: copiar el archivo index.html
+      ansible.builtin.copy: 
+        src: files/index.html
+        dest: "/var/www/vhosts/{{ ansible_hostname }}/index.html"
+        owner: apache
+        group: apache
+        mode: '0644'
+    - name: permitir el servicio http en firewall
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        state: enabled
+        immediate: yes
+    - name: permitir el servicio https en firewall
+      ansible.posix.firewalld:
+        service: https
+        permanent: true
+        state: enabled
+        immediate: yes
+
+  handlers:
+    - name: Restart httpd
+      ansible.builtin.service:
+        name: httpd 
+        state: restarted

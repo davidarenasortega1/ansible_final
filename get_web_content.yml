@@ -1,0 +1,25 @@
+---
+- name: Test web content
+  hosts: localhost
+  become: true
+  gather_facts: false
+ 
+  tasks:
+    - name: Retrieve web content and write error log on failure
+      block:
+        - name: Retrieve web content
+          ansible.builtin.uri:
+            url: http://vagrant1
+            return_content: yes
+          register: content
+      rescue:
+        - name: write to error file
+          ansible.builtin.copy:
+            content: "{{ content }}"
+            dest: error.log
+            mode: '0644'
+    - name: retrieve web content vgarant2
+      ansible.builtin.uri:
+        url: http://vagrant2
+        return_content: yes
+      register: content_V2 

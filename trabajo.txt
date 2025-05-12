@@ -1,0 +1,120 @@
+- name: Configurar Vagrant1 con PHP y WordPress en CentOS
+  hosts: vagrant1
+  become: yes
+
+  vars:
+    php_packages:
+      - php
+      - php-mysqlnd
+      - php-gd
+    wordpress_url: https://wordpress.org/latest.tar.gz
+    wordpress_dest: /var/www/html
+    wp_config_file: /var/www/html/wp-config.php
+
+  handlers:
+    - name: restart httpd
+      service:
+        name: httpd
+        state: restarted
+
+  tasks:
+    - name: Instalar EPEL (opcional, según versión)
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Instalar paquetes PHP y dependencias
+      yum:
+        name: "{{ php_packages }}"
+        state: present
+
+    - name: Asegurar que httpd esté instalado
+      yum:
+        name: httpd
+        state: present
+
+    - name: Iniciar y habilitar el servicio httpd
+      service:
+        name: httpd
+        state: started
+        enabled: true
+
+    - name: Crear archivo info.php
+      copy:
+        dest: /var/www/html/info.php
+        content: "<?php phpinfo(); ?>"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart httpd
+
+    - name: Verificar acceso HTTP a info.php
+      uri:
+        url: http://vagrant1/info.php
+        return_content: yes
+      register: phpinfo_response
+      ignore_errors: yes
+
+    - name: Verificar contenido de info.php
+      debug:
+        msg: "Contenido info.php accesible"
+      when: "'PHP Version' in phpinfo_response.content"
+
+    - name: Descargar WordPress
+      get_url:
+        url: "{{ wordpress_url }}"
+        dest: /tmp/latest.tar.gz
+
+    - name: Extraer WordPress
+      unarchive:
+        src: /tmp/latest.tar.gz
+        dest: "{{ wordpress_dest }}"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Cambiar ownership de /var/www/html
+      file:
+        path: "{{ wordpress_dest }}"
+        owner: apache
+        group: apache
+        recurse: yes
+
+    - name: Cambiar permisos a 755 en /var/www/html
+      file:
+        path: "{{ wordpress_dest }}"
+        mode: '0755'
+        recurse: yes
+
+    - name: Copiar wp-config-sample.php a wp-config.php
+      copy:
+        src: "{{ wordpress_dest }}/wp-config-sample.php"
+        dest: "{{ wp_config_file }}"
+        remote_src: yes
+
+    - name: Configurar DB_NAME en wp-config.php
+      replace:
+        path: "{{ wp_config_file }}"
+        regexp: "define\\('DB_NAME',\\s*'[^']*'\\);"
+        replace: "define('DB_NAME', 'wordpress');"
+      notify: restart httpd
+
+    - name: Configurar DB_USER en wp-config.php
+      replace:
+        path: "{{ wp_config_file }}"
+        regexp: "define\\('DB_USER',\\s*'[^']*'\\);"
+        replace: "define('DB_USER', 'wordpress');"
+      notify: restart httpd
+
+    - name: Configurar DB_PASSWORD en wp-config.php
+      replace:
+        path: "{{ wp_config_file }}"
+        regexp: "define\\('DB_PASSWORD',\\s*'[^']*'\\);"
+        replace: "define('DB_PASSWORD', '1234');"
+      notify: restart httpd
+
+    - name: Configurar DB_HOST en wp-config.php
+      replace:
+        path: "{{ wp_config_file }}"
+        regexp: "define\\('DB_HOST',\\s*'[^']*'\\);"
+        replace: "define('DB_HOST', 'vagrant2');"
+      notify: restart httpd
